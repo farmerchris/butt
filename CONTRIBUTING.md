@@ -18,6 +18,15 @@
 - Update docs for behavior or flag changes.
 - Add/adjust tests for behavior changes.
 
+## One-step release
+
+- Create version bump + commit + tag in one command:
+  - `./scripts/release.sh 0.1.3`
+- Push immediately:
+  - `./scripts/release.sh 0.1.3 --push`
+
+This avoids mismatched `Cargo.toml` version and git tag.
+
 ## Coverage report
 
 - Generate HTML coverage report:
