@@ -13,3 +13,4 @@
   - Run `env -u RUSTC_WRAPPER cargo clippy --all-targets --all-features -- -D warnings` and fix all warnings
   - Run `env -u RUSTC_WRAPPER cargo check --all-targets --all-features` and fix all warnings/errors
   - Run `env -u RUSTC_WRAPPER cargo test` and fix failing/flaky tests
+  - Make sure README.md Usage section matches `--help` output   

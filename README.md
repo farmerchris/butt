@@ -14,11 +14,52 @@ A throttled tail/stdin tool. Make sure your processes are not hung, and show imp
   - `--max-buffer-bytes` (default `1048576`)
   - `--max-line-bytes` (default `65536`)
 
-## Usage
+## Installation
 
 ```bash
-cargo run -- --line-seconds 5 --idle-seconds 10
-cargo run -- /path/to/log --regex ERROR --color yellow
+cargo install --path .
+```
+
+## Usage
+
+```
+Throttle stream output and follow files
+
+Usage: butt [OPTIONS] [PATH]
+
+Arguments:
+  [PATH]  File to follow. If omitted, reads from stdin
+
+Options:
+  -n, --line-seconds <LINE_SECONDS>
+          Print at most one input line per N seconds [default: 5]
+  -i, --idle-seconds <IDLE_SECONDS>
+          No-output notice period in seconds
+  -r, --regex <REGEX>
+          Regex pattern to highlight
+  -c, --color <COLOR>
+          Highlight color for regex matches [default: yellow] [possible values: red, green, yellow, blue, magenta, cyan]
+      --poll-millis <POLL_MILLIS>
+          Poll interval in milliseconds [default: 200]
+      --max-buffer-bytes <MAX_BUFFER_BYTES>
+          Maximum pending in-memory bytes while assembling lines [default: 1048576]
+      --max-line-bytes <MAX_LINE_BYTES>
+          Maximum bytes per line before truncation/drop [default: 65536]
+      --no-follow-symlinks
+          Refuse following files when PATH is a symlink
+      --allowed-root <ALLOWED_ROOT>
+          Restrict followed file to this root directory (after canonicalization)
+  -h, --help
+          Print help
+  -V, --version
+          Print version
+```
+
+## Examples
+
+```bash
+/path/to/process | butt --line-seconds 10 --idle-seconds 30
+butt /path/to/log --regex ERROR --color yellow
 ```
 
 ## Dev workflow
