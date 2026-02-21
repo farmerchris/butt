@@ -1,0 +1,11 @@
+FROM rust:1.92-bookworm
+
+WORKDIR /app
+
+VOLUME ["/usr/local/cargo/registry", "/usr/local/cargo/git", "/app/target"]
+
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY tests ./tests
+
+CMD ["cargo", "test", "--all-targets", "--all-features"]

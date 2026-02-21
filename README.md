@@ -1,6 +1,6 @@
 # butt
 
-A throttled tail/stdin tool.
+A throttled tail/stdin tool. Make sure your processes are not hung, and show imporant messages immediately.
 
 - Reads from a file (`butt /path/to/log`) or stdin (`cmd | butt`)
 - Prints at most one normal line every `--line-seconds` (default `5`)
@@ -21,8 +21,6 @@ cargo run -- --line-seconds 5 --idle-seconds 10
 cargo run -- /path/to/log --regex ERROR --color yellow
 ```
 
-## Test
+## Dev workflow
 
-```bash
-env -u RUSTC_WRAPPER cargo test
-```
+See `CONTRIBUTING.md` for precheck, Linux Docker test, and coverage commands.
