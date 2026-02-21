@@ -102,3 +102,34 @@ pub(crate) fn start_stdin_reader(
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collect_complete_lines_truncates_oversized_lines() {
+        let mut pending = b"abcdef\n".to_vec();
+        let (lines, dropped) = collect_complete_lines(&mut pending, 3);
+        assert_eq!(lines, vec!["abc".to_string()]);
+        assert_eq!(dropped, 1);
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn collect_complete_lines_drops_oversized_unterminated_fragment() {
+        let mut pending = b"abcdef".to_vec();
+        let (lines, dropped) = collect_complete_lines(&mut pending, 3);
+        assert!(lines.is_empty());
+        assert_eq!(dropped, 1);
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn append_with_buffer_cap_keeps_recent_bytes_when_incoming_is_huge() {
+        let mut pending = b"old".to_vec();
+        let dropped = append_with_buffer_cap(&mut pending, b"abcdef", 4);
+        assert!(dropped);
+        assert_eq!(pending, b"cdef".to_vec());
+    }
+}

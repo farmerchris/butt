@@ -54,3 +54,23 @@ pub(crate) fn should_use_color() -> bool {
 
     io::stdout().is_terminal()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::HighlightColor;
+
+    #[test]
+    fn highlights_all_matches() {
+        let re = Regex::new("ERR").expect("regex should compile");
+        let out = highlight_matches("x ERR y ERR z", &re, &HighlightColor::Red);
+        assert!(out.contains("\x1b[31mERR\x1b[0m"));
+        assert_eq!(out.matches("\x1b[31mERR\x1b[0m").count(), 2);
+    }
+
+    #[test]
+    fn decorates_plain_when_no_regex() {
+        let out = decorate_line("plain text", None, &HighlightColor::Yellow, true);
+        assert_eq!(out, "plain text");
+    }
+}

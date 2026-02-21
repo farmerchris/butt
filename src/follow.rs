@@ -289,3 +289,36 @@ pub(crate) fn follow_stdin(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink;
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_follow_target_rejects_symlink_when_configured() {
+        let tmp = tempdir().expect("tempdir");
+        let real = tmp.path().join("real.log");
+        let link = tmp.path().join("link.log");
+        File::create(&real).expect("create real file");
+        symlink(&real, &link).expect("create symlink");
+
+        let result = validate_follow_target(&link, true, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_follow_target_rejects_outside_allowed_root() {
+        let root = tempdir().expect("root tempdir");
+        let outside = tempdir().expect("outside tempdir");
+        let outside_file = outside.path().join("outside.log");
+        File::create(&outside_file).expect("create outside file");
+
+        let result = validate_follow_target(&outside_file, false, Some(root.path()));
+        assert!(result.is_err());
+    }
+}
