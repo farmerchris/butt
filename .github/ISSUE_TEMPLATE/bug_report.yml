@@ -1,0 +1,40 @@
+name: Bug report
+description: Report a bug in butt
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: What did you expect vs what actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Include command lines and sample input.
+      placeholder: |
+        1. Run: ...
+        2. Pipe input: ...
+        3. Observe: ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: butt --version
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, shell, terminal, CI/local
+    validations:
+      required: false

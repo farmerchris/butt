@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary_name: butt
+          - os: macos-latest
+            binary_name: butt
+          - os: windows-latest
+            binary_name: butt.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Prepare release artifact (unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          HOST="$(rustc -vV | sed -n 's/^host: //p')"
+          NAME="butt-${TAG}-${HOST}"
+          cp "target/release/${{ matrix.binary_name }}" "${NAME}"
+          chmod +x "${NAME}"
+          tar -czf "${NAME}.tar.gz" "${NAME}"
+
+      - name: Prepare release artifact (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tag = "${env:GITHUB_REF_NAME}"
+          $host = (rustc -vV | Select-String '^host:').ToString().Replace('host: ', '').Trim()
+          $name = "butt-$tag-$host"
+          Copy-Item "target/release/${{ matrix.binary_name }}" "$name.exe"
+          Compress-Archive -Path "$name.exe" -DestinationPath "$name.zip" -Force
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.tar.gz
+            *.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
