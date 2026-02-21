@@ -45,10 +45,15 @@ jobs:
           chmod +x "${NAME}"
           tar -czf "${NAME}.tar.gz" "${NAME}"
 
+      - name: Verify release artifacts
+        shell: bash
+        run: |
+          ls -1 *.tar.gz
+
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
           files: |
             *.tar.gz
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false
           generate_release_notes: true
