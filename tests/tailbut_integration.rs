@@ -3,7 +3,10 @@ use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 
 fn spawn_capture_thread<R: Read + Send + 'static>(
     mut reader: R,
@@ -35,6 +38,14 @@ fn wait_for_contains(buf: &Arc<Mutex<String>>, needle: &str, timeout: Duration) 
         thread::sleep(Duration::from_millis(50));
     }
     false
+}
+
+fn unique_marker(prefix: &str) -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock before epoch")
+        .as_nanos();
+    format!("{prefix}-{nanos}-{}", std::process::id())
 }
 
 #[test]
@@ -79,6 +90,8 @@ fn prints_idle_message_after_configured_interval() {
 
 #[test]
 fn throttles_non_matching_stdin_to_one_line_per_interval() {
+    let marker = unique_marker("throttle");
+
     let mut child = Command::new(env!("CARGO_BIN_EXE_butt"))
         .args([
             "--line-seconds",
@@ -101,11 +114,14 @@ fn throttles_non_matching_stdin_to_one_line_per_interval() {
 
     let mut stdin = child.stdin.take().expect("stdin pipe");
     for i in 0..10 {
-        writeln!(stdin, "msg-{i}").expect("write line");
+        writeln!(stdin, "{marker}-msg-{i}").expect("write line");
     }
     stdin.flush().expect("flush stdin");
 
-    thread::sleep(Duration::from_millis(1400));
+    let saw_first = wait_for_contains(&stdout_buf, &marker, Duration::from_secs(4));
+    assert!(saw_first, "expected at least one throttled line");
+
+    thread::sleep(Duration::from_millis(300));
 
     let _ = child.kill();
     let _ = child.wait();
@@ -113,7 +129,7 @@ fn throttles_non_matching_stdin_to_one_line_per_interval() {
     let _ = stderr_handle.join();
 
     let out = stdout_buf.lock().expect("lock poisoned").clone();
-    let count = out.lines().filter(|line| line.starts_with("msg-")).count();
+    let count = out.lines().filter(|line| line.contains(&marker)).count();
     assert_eq!(
         count, 1,
         "expected exactly one throttled line, got output: {out}"
@@ -122,6 +138,8 @@ fn throttles_non_matching_stdin_to_one_line_per_interval() {
 
 #[test]
 fn regex_matches_print_immediately_and_reset_throttle_window() {
+    let marker = unique_marker("regex");
+
     let mut child = Command::new(env!("CARGO_BIN_EXE_butt"))
         .args([
             "--line-seconds",
@@ -149,21 +167,21 @@ fn regex_matches_print_immediately_and_reset_throttle_window() {
         spawn_capture_thread(child.stderr.take().expect("stderr pipe"));
 
     let mut stdin = child.stdin.take().expect("stdin pipe");
-    writeln!(stdin, "regular message").expect("write non-match");
+    writeln!(stdin, "{marker} regular message").expect("write non-match");
     stdin.flush().expect("flush non-match");
     thread::sleep(Duration::from_millis(150));
-    writeln!(stdin, "ERR first").expect("write first match");
-    writeln!(stdin, "ERR second").expect("write second match");
+    writeln!(stdin, "{marker} ERR first").expect("write first match");
+    writeln!(stdin, "{marker} ERR second").expect("write second match");
     stdin.flush().expect("flush matches");
 
     let saw_first = wait_for_contains(
         &stdout_buf,
-        "\x1b[32mERR\x1b[0m first",
+        &format!("{marker} \x1b[32mERR\x1b[0m first"),
         Duration::from_secs(2),
     );
     let saw_second = wait_for_contains(
         &stdout_buf,
-        "\x1b[32mERR\x1b[0m second",
+        &format!("{marker} \x1b[32mERR\x1b[0m second"),
         Duration::from_secs(2),
     );
 
@@ -178,7 +196,7 @@ fn regex_matches_print_immediately_and_reset_throttle_window() {
     assert!(saw_first, "first regex match was not printed");
     assert!(saw_second, "second regex match was not printed");
     assert!(
-        !out.contains("regular message"),
+        !out.contains(&format!("{marker} regular message")),
         "non-matching line should remain throttled after regex reset, output: {out}"
     );
 }
@@ -262,6 +280,8 @@ fn follows_rotated_file_and_prints_matching_line() {
 
 #[test]
 fn no_color_disables_highlight_sequences() {
+    let marker = unique_marker("nocolor");
+
     let mut child = Command::new(env!("CARGO_BIN_EXE_butt"))
         .args([
             "--line-seconds",
@@ -289,10 +309,14 @@ fn no_color_disables_highlight_sequences() {
         spawn_capture_thread(child.stderr.take().expect("stderr pipe"));
 
     let mut stdin = child.stdin.take().expect("stdin pipe");
-    writeln!(stdin, "ERR without color").expect("write line");
+    writeln!(stdin, "{marker} ERR without color").expect("write line");
     stdin.flush().expect("flush line");
 
-    let saw_plain = wait_for_contains(&stdout_buf, "ERR without color", Duration::from_secs(2));
+    let saw_plain = wait_for_contains(
+        &stdout_buf,
+        &format!("{marker} ERR without color"),
+        Duration::from_secs(2),
+    );
     let saw_ansi = wait_for_contains(
         &stdout_buf,
         "\x1b[32mERR\x1b[0m",
@@ -306,4 +330,87 @@ fn no_color_disables_highlight_sequences() {
 
     assert!(saw_plain, "expected plain matched line");
     assert!(!saw_ansi, "did not expect ANSI color when NO_COLOR is set");
+}
+
+#[cfg(unix)]
+#[test]
+fn no_follow_symlinks_blocks_symlink_targets() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let real = tmp.path().join("real.log");
+    let link = tmp.path().join("link.log");
+    File::create(&real).expect("create real file");
+    symlink(&real, &link).expect("create symlink");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_butt"))
+        .args([
+            link.to_str().expect("utf8 path"),
+            "--no-follow-symlinks",
+            "--line-seconds",
+            "60",
+            "--idle-seconds",
+            "60",
+            "--poll-millis",
+            "25",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn butt");
+
+    let (_stdout_buf, stdout_handle) =
+        spawn_capture_thread(child.stdout.take().expect("stdout pipe"));
+    let (stderr_buf, stderr_handle) =
+        spawn_capture_thread(child.stderr.take().expect("stderr pipe"));
+
+    let blocked = wait_for_contains(
+        &stderr_buf,
+        "symlink targets are not allowed by --no-follow-symlinks",
+        Duration::from_secs(3),
+    );
+
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = stdout_handle.join();
+    let _ = stderr_handle.join();
+
+    assert!(blocked, "expected symlink block message");
+}
+
+#[test]
+fn allowed_root_blocks_paths_outside_root() {
+    let root = tempfile::tempdir().expect("root dir");
+    let outside = tempfile::tempdir().expect("outside dir");
+    let outside_log = outside.path().join("outside.log");
+    File::create(&outside_log).expect("create outside log");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_butt"))
+        .args([
+            outside_log.to_str().expect("utf8 path"),
+            "--allowed-root",
+            root.path().to_str().expect("utf8 root"),
+            "--line-seconds",
+            "60",
+            "--idle-seconds",
+            "60",
+            "--poll-millis",
+            "25",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn butt");
+
+    let (_stdout_buf, stdout_handle) =
+        spawn_capture_thread(child.stdout.take().expect("stdout pipe"));
+    let (stderr_buf, stderr_handle) =
+        spawn_capture_thread(child.stderr.take().expect("stderr pipe"));
+
+    let blocked = wait_for_contains(&stderr_buf, "outside allowed root", Duration::from_secs(3));
+
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = stdout_handle.join();
+    let _ = stderr_handle.join();
+
+    assert!(blocked, "expected allowed-root block message");
 }
