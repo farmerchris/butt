@@ -54,7 +54,8 @@ if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
 fi
 
 MAIN_VERSION="$(
-  git show "${MAIN_REF}:Cargo.toml" | sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*\"\\(.*\\)\"[[:space:]]*$/\\1/p' | head -n1
+  git show "${MAIN_REF}:Cargo.toml" \
+    | awk -F'"' '/^[[:space:]]*version[[:space:]]*=/ {print $2; exit}'
 )"
 if [[ -z "${MAIN_VERSION}" ]]; then
   echo "Could not parse version from ${MAIN_REF}:Cargo.toml" >&2
