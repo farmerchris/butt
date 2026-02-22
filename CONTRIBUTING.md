@@ -18,14 +18,13 @@
 - Update docs for behavior or flag changes.
 - Add/adjust tests for behavior changes.
 
-## One-step release
+## Release workflow (PR-protected main)
 
-- Create version bump + commit + tag in one command:
-  - `./scripts/release.sh 0.1.3`
-- Push immediately:
-  - `./scripts/release.sh 0.1.3 --push`
-
-This avoids mismatched `Cargo.toml` version and git tag.
+- Prepare release commit on your branch:
+  - `./scripts/release.sh 0.1.3 --push-branch`
+- Open/merge PR to `main`.
+- Create tag from `origin/main` (safe for protected main):
+  - `./scripts/tag-release.sh 0.1.3 --push`
 
 ## Coverage report
 

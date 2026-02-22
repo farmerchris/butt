@@ -4,18 +4,20 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/release.sh <version> [--push]
+  ./scripts/release.sh <version> [--push-branch]
 
 Examples:
   ./scripts/release.sh 0.1.3
-  ./scripts/release.sh v0.1.3 --push
+  ./scripts/release.sh v0.1.3 --push-branch
 
 This script:
   1) updates Cargo.toml version
   2) runs prechecks
   3) commits the version bump
-  4) creates annotated tag v<version>
-  5) optionally pushes commit + tag with --push
+  4) optionally pushes the current branch with --push-branch
+
+After PR merge, create/push the release tag from origin/main with:
+  ./scripts/tag-release.sh <version>
 EOF
 }
 
@@ -25,10 +27,10 @@ if [[ $# -lt 1 || $# -gt 2 ]]; then
 fi
 
 VERSION_RAW="$1"
-PUSH="${2:-}"
+PUSH_BRANCH="${2:-}"
 
-if [[ -n "${PUSH}" && "${PUSH}" != "--push" ]]; then
-  echo "Invalid argument: ${PUSH}" >&2
+if [[ -n "${PUSH_BRANCH}" && "${PUSH_BRANCH}" != "--push-branch" ]]; then
+  echo "Invalid argument: ${PUSH_BRANCH}" >&2
   usage
   exit 2
 fi
@@ -39,15 +41,8 @@ if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
   exit 2
 fi
 
-TAG="v${VERSION}"
-
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "Working tree is not clean. Commit/stash changes first." >&2
-  exit 1
-fi
-
-if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-  echo "Tag ${TAG} already exists." >&2
   exit 1
 fi
 
@@ -64,18 +59,16 @@ if git diff --cached --quiet; then
   echo "No version changes staged. Did Cargo.toml already have ${VERSION}?" >&2
   exit 1
 fi
-git commit -m "release: ${TAG}"
+git commit -m "release: v${VERSION}"
 
-echo "[release] Creating tag ${TAG}"
-git tag -a "${TAG}" -m "${TAG}"
-
-if [[ "${PUSH}" == "--push" ]]; then
-  echo "[release] Pushing commit and tag"
+if [[ "${PUSH_BRANCH}" == "--push-branch" ]]; then
+  echo "[release] Pushing current branch"
   git push origin HEAD
-  git push origin "${TAG}"
 else
-  echo "[release] Dry run complete (local commit + tag created, not pushed)."
-  echo "To publish:"
+  echo "[release] Done (local commit created, branch not pushed)."
+  echo "To open PR:"
   echo "  git push origin HEAD"
-  echo "  git push origin ${TAG}"
 fi
+
+echo "[release] After PR merge, tag from main with:"
+echo "  ./scripts/tag-release.sh ${VERSION}"
