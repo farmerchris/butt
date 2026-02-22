@@ -40,7 +40,7 @@ jobs:
       - name: Verify tag matches Cargo.toml version
         shell: bash
         run: |
-          CARGO_VERSION="$(sed -n 's/^version = \"\\(.*\\)\"$/\\1/p' Cargo.toml | head -n1)"
+          CARGO_VERSION="$(awk -F'\"' '/^[[:space:]]*version[[:space:]]*=/ {print $2; exit}' Cargo.toml)"
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           if [[ -z "${CARGO_VERSION}" ]]; then
             echo "Unable to parse version from Cargo.toml" >&2
