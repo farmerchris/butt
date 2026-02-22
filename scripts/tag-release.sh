@@ -42,6 +42,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 git fetch --tags origin main
+MAIN_REF="$(git rev-parse --verify FETCH_HEAD)"
 
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
   echo "Local tag ${TAG} already exists." >&2
@@ -52,18 +53,20 @@ if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
   exit 1
 fi
 
-MAIN_VERSION="$(git show origin/main:Cargo.toml | sed -n 's/^version = \"\\(.*\\)\"$/\\1/p' | head -n1)"
+MAIN_VERSION="$(
+  git show "${MAIN_REF}:Cargo.toml" | sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*\"\\(.*\\)\"[[:space:]]*$/\\1/p' | head -n1
+)"
 if [[ -z "${MAIN_VERSION}" ]]; then
-  echo "Could not parse version from origin/main:Cargo.toml" >&2
+  echo "Could not parse version from ${MAIN_REF}:Cargo.toml" >&2
   exit 1
 fi
 if [[ "${MAIN_VERSION}" != "${VERSION}" ]]; then
-  echo "Version mismatch: origin/main Cargo.toml has ${MAIN_VERSION}, requested ${VERSION}" >&2
+  echo "Version mismatch: ${MAIN_REF} Cargo.toml has ${MAIN_VERSION}, requested ${VERSION}" >&2
   exit 1
 fi
 
-echo "[release-tag] Creating local tag ${TAG} at origin/main"
-git tag -a "${TAG}" -m "${TAG}" origin/main
+echo "[release-tag] Creating local tag ${TAG} at ${MAIN_REF}"
+git tag -a "${TAG}" -m "${TAG}" "${MAIN_REF}"
 
 if [[ "${PUSH}" == "--push" ]]; then
   echo "[release-tag] Pushing tag ${TAG}"
