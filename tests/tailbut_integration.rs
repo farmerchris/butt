@@ -202,6 +202,58 @@ fn regex_matches_print_immediately_and_reset_throttle_window() {
 }
 
 #[test]
+fn regex_case_insensitive_matches_immediately() {
+    let marker = unique_marker("regex-ci");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_butt"))
+        .args([
+            "--line-seconds",
+            "2",
+            "--idle-seconds",
+            "60",
+            "--poll-millis",
+            "20",
+            "--regex",
+            "err",
+            "--case-insensitive",
+            "--color",
+            "green",
+        ])
+        .env("CLICOLOR_FORCE", "1")
+        .env_remove("NO_COLOR")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn butt");
+
+    let (stdout_buf, stdout_handle) =
+        spawn_capture_thread(child.stdout.take().expect("stdout pipe"));
+    let (_stderr_buf, stderr_handle) =
+        spawn_capture_thread(child.stderr.take().expect("stderr pipe"));
+
+    let mut stdin = child.stdin.take().expect("stdin pipe");
+    writeln!(stdin, "{marker} ERR uppercase").expect("write uppercase match");
+    stdin.flush().expect("flush line");
+
+    let saw_highlight = wait_for_contains(
+        &stdout_buf,
+        &format!("{marker} \x1b[32mERR\x1b[0m uppercase"),
+        Duration::from_secs(2),
+    );
+
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = stdout_handle.join();
+    let _ = stderr_handle.join();
+
+    assert!(
+        saw_highlight,
+        "case-insensitive regex match was not printed immediately"
+    );
+}
+
+#[test]
 fn follows_rotated_file_and_prints_matching_line() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let log = tmp.path().join("app.log");

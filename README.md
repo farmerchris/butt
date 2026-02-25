@@ -5,6 +5,7 @@ A throttled tail/stdin tool. Make sure your processes are not hung, and show imp
 - Reads from a file (`butt /path/to/log`) or stdin (`cmd | butt`)
 - Prints at most one normal line every `--line-seconds` (default `5`)
 - Prints matching `--regex` lines immediately (with optional color)
+- Optional case-insensitive regex matching with `-I` / `--case-insensitive`
 - Prints `[no output for N seconds]` every `--idle-seconds` when idle (disabled unless provided)
 - `--line-seconds` and `--idle-seconds` (if provided) must be `>= 1`
 - Optional safety flags:
@@ -37,6 +38,8 @@ Options:
           No-output notice period in seconds
   -r, --regex <REGEX>
           Regex pattern to highlight
+  -I, --case-insensitive
+          Make --regex matching case-insensitive
   -c, --color <COLOR>
           Highlight color for regex matches [default: yellow] [possible values: red, green, yellow, blue, magenta, cyan]
       --poll-millis <POLL_MILLIS>
@@ -60,6 +63,7 @@ Options:
 ```bash
 /path/to/process | butt --line-seconds 10 --idle-seconds 30
 butt /path/to/log --regex ERROR --color yellow
+butt /path/to/log --regex error --case-insensitive
 ```
 
 ## Dev workflow

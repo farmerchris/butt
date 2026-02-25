@@ -4,7 +4,7 @@ mod limits;
 mod output;
 
 use clap::Parser;
-use regex::Regex;
+use regex::RegexBuilder;
 use std::fs;
 
 use crate::cli::Args;
@@ -26,7 +26,10 @@ fn main() {
     };
 
     let regex = match &args.regex {
-        Some(pattern) => match Regex::new(pattern) {
+        Some(pattern) => match RegexBuilder::new(pattern)
+            .case_insensitive(args.regex_case_insensitive)
+            .build()
+        {
             Ok(re) => Some(re),
             Err(err) => {
                 eprintln!("[butt] invalid regex '{pattern}': {err}");
