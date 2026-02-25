@@ -1,6 +1,6 @@
 [package]
 name = "butt"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "Throttled tail/stdin monitor with regex highlighting"
 repository = "https://github.com/farmerchris/butt"

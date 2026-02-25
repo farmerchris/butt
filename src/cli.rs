@@ -59,6 +59,10 @@ pub(crate) struct Args {
     #[arg(short, long)]
     pub(crate) regex: Option<String>,
 
+    /// Make --regex matching case-insensitive.
+    #[arg(short = 'I', long = "case-insensitive", default_value_t = false)]
+    pub(crate) regex_case_insensitive: bool,
+
     /// Highlight color for regex matches.
     #[arg(short, long, value_enum, default_value = "yellow")]
     pub(crate) color: HighlightColor,
@@ -116,9 +120,17 @@ mod tests {
         assert_eq!(with_path.idle_seconds, None);
         assert_eq!(with_path.max_buffer_bytes, 1_048_576);
         assert_eq!(with_path.max_line_bytes, 65_536);
+        assert!(!with_path.regex_case_insensitive);
 
         let without_path = Args::parse_from(["butt"]);
         assert_eq!(without_path.path, None);
+    }
+
+    #[test]
+    fn parses_regex_case_insensitive_flag() {
+        let parsed = Args::parse_from(["butt", "--regex", "err", "--case-insensitive"]);
+        assert_eq!(parsed.regex.as_deref(), Some("err"));
+        assert!(parsed.regex_case_insensitive);
     }
 
     #[test]
